@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - Smart Waste System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+  <div class="card login-card">
+    <h2>Smart Waste System</h2>
+    <p class="subtitle">Login to your account</p>
+    
+    <div id="loginError" class="error-message"></div>
+    
+    <label>Email or Phone</label>
+    <input type="text" id="loginEmail" placeholder="Enter email or phone">
+    
+    <label>Password</label>
+    <input type="password" id="loginPassword" placeholder="Enter password">
+    
+    <label>Login As</label>
+    <select id="loginRole">
+      <option value="resident">Resident</option>
+      <option value="collector">Collector</option>
+      <option value="admin">Admin</option>
+    </select>
+    
+    <button onclick="handleLogin()">Login</button>
+    
+    <p class="link" onclick="goRegister()">Don't have an account? Register here</p>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+  function handleLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const role = document.getElementById('loginRole').value;
+    
+    if (!email) {
+      showError('Please enter email or phone');
+      return;
+    }
+    
+    if (!password) {
+      showError('Please enter password');
+      return;
+    }
+    
+    // Try to login
+    const user = loginUser(email, password, role);
+    
+    if (user) {
+      // Redirect based on role
+      switch(role) {
+        case 'admin':
+          window.location.href = 'admin.html';
+          break;
+        case 'collector':
+          window.location.href = 'collector.html';
+          break;
+        default:
+          window.location.href = 'resident.html';
+      }
+    } else {
+      showError('Invalid credentials or role');
+    }
+  }
+  
+  function showError(message) {
+    const errorDiv = document.getElementById('loginError');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    setTimeout(() => {
+      errorDiv.style.display = 'none';
+    }, 3000);
+  }
+  
+  function goRegister() {
+    window.location.href = 'register.html';
+  }
+  
+  // Enter key support
+  document.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      handleLogin();
+    }
+  });
+</script>
+
+</body>
+</html>

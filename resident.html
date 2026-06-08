@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Waste App</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginSection" class="card">
+    <h2>Smart Waste System</h2>
+    <p class="subtitle">Login to your account</p>
+    <div id="loginError" class="error-message"></div>
+    <input type="text" id="loginEmail" placeholder="Phone / Email">
+    <input type="password" id="loginPassword" placeholder="Password">
+    <button onclick="handleLogin()">Login</button>
+    <p class="link" onclick="goRegister()">Don't have an account? Register here</p>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboardSection" class="card" style="display:none;">
+    <h3>Welcome, <span id="userName"></span></h3>
+    <p class="points-display">Your Points: <strong id="userPoints">0</strong></p>
+    <button class="green" onclick="showRequestForm()">Request Pickup</button>
+    <button class="green" onclick="showSchedule()">View Schedule</button>
+    <button class="orange" onclick="showComplaintForm()">Report Missed Pickup</button>
+    <button class="green" onclick="showRewards()">My Rewards</button>
+    <button class="red" onclick="handleLogout()">Logout</button>
+  </div>
+
+  <!-- REQUEST PICKUP -->
+  <div id="requestSection" class="card" style="display:none;">
+    <h3>Request Pickup</h3>
+    <button class="back-btn" onclick="showDashboard()">← Back</button>
+    
+    <label>Waste Type</label>
+    <select id="wasteType">
+      <option value="Biodegradable">Biodegradable</option>
+      <option value="Recyclable">Recyclable</option>
+      <option value="Non-recyclable">Non-recyclable</option>
+    </select>
+
+    <label>Pickup Date</label>
+    <input type="date" id="pickupDate">
+
+    <label>Notes</label>
+    <textarea id="pickupNotes" placeholder="Add any special instructions..."></textarea>
+
+    <button onclick="submitPickupRequest()">Submit Request</button>
+    
+    <div id="myRequests" style="margin-top: 20px;">
+      <h4>My Recent Requests</h4>
+      <div id="requestsList"></div>
+    </div>
+  </div>
+
+  <!-- COMPLAINT FORM -->
+  <div id="complaintSection" class="card" style="display:none;">
+    <h3>Report Issue</h3>
+    <button class="back-btn" onclick="showDashboard()">← Back</button>
+    
+    <label>Issue Type</label>
+    <select id="complaintType">
+      <option value="Missed Pickup">Missed Pickup</option>
+      <option value="Late Pickup">Late Pickup</option>
+      <option value="Poor Service">Poor Service</option>
+      <option value="Other">Other</option>
+    </select>
+
+    <label>Description</label>
+    <textarea id="complaintDescription" placeholder="Describe the issue..."></textarea>
+
+    <button onclick="submitComplaint()">Submit Complaint</button>
+  </div>
+
+  <!-- SCHEDULE -->
+  <div id="scheduleSection" class="card" style="display:none;">
+    <h3>Pickup Schedule</h3>
+    <button class="back-btn" onclick="showDashboard()">← Back</button>
+    <div id="scheduleList"></div>
+  </div>
+
+  <!-- REWARDS -->
+  <div id="rewardsSection" class="card" style="display:none;">
+    <h3>My Rewards</h3>
+    <button class="back-btn" onclick="showDashboard()">← Back</button>
+    <div class="rewards-display">
+      <p class="big-points" id="rewardPoints">0</p>
+      <p>points</p>
+      <p class="rewards-info">Earn points by recycling regularly!</p>
+    </div>
+  </div>
+
+</div>
+
+<script src="script.js"></script>
+<script>
+  // Check if user is already logged in
+  window.onload = function() {
+    const user = getCurrentUser();
+    if (user && user.role === 'resident') {
+      showDashboard();
+    } else {
+      showLogin();
+    }
+    
+    // Set minimum date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('pickupDate').setAttribute('min', today);
+  };
+
+  function handleLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    
+    if (!email) {
+      showLoginError('Please enter email or phone');
+      return;
+    }
+    
+    if (!password) {
+      showLoginError('Please enter password');
+      return;
+    }
+    
+    const user = loginUser(email, password, 'resident');
+    
+    if (user) {
+      showNotification('Login successful!');
+      showDashboard();
+    } else {
+      showLoginError('Invalid credentials');
+    }
+  }
+  
+  function showLoginError(msg) {
+    const errorDiv = document.getElementById('loginError');
+    errorDiv.textContent = msg;
+    errorDiv.style.display = 'block';
+    setTimeout(() => errorDiv.style.display = 'none', 3000);
+  }
+  
+  function showLogin() {
+    document.getElementById('loginSection').style.display = 'block';
+    document.getElementById('dashboardSection').style.display = 'none';
+    document.getElementById('requestSection').style.display = 'none';
+    document.getElementById('complaintSection').style.display = 'none';
+    document.getElementById('scheduleSection').style.display = 'none';
+    document.getElementById('rewardsSection').style.display = 'none';
+  }
+
+  function showDashboard() {
+    const user = getCurrentUser();
+    if (!user) {
+      showLogin();
+      return;
+    }
+    
+    document.getElementById('userName').textContent = user.name.split(' ')[0];
+    document.getElementById('userPoints').textContent = user.points || 0;
+    
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('dashboardSection').style.display = 'block';
+    document.getElementById('requestSection').style.display = 'none';
+    document.getElementById('complaintSection').style.display = 'none';
+    document.getElementById('scheduleSection').style.display = 'none';
+    document.getElementById('rewardsSection').style.display = 'none';
+  }
+  
+  function showRequestForm() {
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('dashboardSection').style.display = 'none';
+    document.getElementById('requestSection').style.display = 'block';
+    document.getElementById('complaintSection').style.display = 'none';
+    document.getElementById('scheduleSection').style.display = 'none';
+    document.getElementById('rewardsSection').style.display = 'none';
+    
+    loadMyRequests();
+  }
+  
+  function showComplaintForm() {
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('dashboardSection').style.display = 'none';
+    document.getElementById('requestSection').style.display = 'none';
+    document.getElementById('complaintSection').style.display = 'block';
+    document.getElementById('scheduleSection').style.display = 'none';
+    document.getElementById('rewardsSection').style.display = 'none';
+  }
+  
+  function showSchedule() {
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('dashboardSection').style.display = 'none';
+    document.getElementById('requestSection').style.display = 'none';
+    document.getElementById('complaintSection').style.display = 'none';
+    document.getElementById('scheduleSection').style.display = 'block';
+    document.getElementById('rewardsSection').style.display = 'none';
+    
+    loadSchedule();
+  }
+  
+  function showRewards() {
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('dashboardSection').style.display = 'none';
+    document.getElementById('requestSection').style.display = 'none';
+    document.getElementById('complaintSection').style.display = 'none';
+    document.getElementById('scheduleSection').style.display = 'none';
+    document.getElementById('rewardsSection').style.display = 'block';
+    
+    const user = getCurrentUser();
+    document.getElementById('rewardPoints').textContent = user.points || 0;
+  }
+
+  function submitPickupRequest() {
+    const user = getCurrentUser();
+    const wasteType = document.getElementById('wasteType').value;
+    const date = document.getElementById('pickupDate').value;
+    const notes = document.getElementById('pickupNotes').value;
+    
+    if (!date) {
+      showNotification('Please select a pickup date', 'error');
+      return;
+    }
+    
+    createPickupRequest(user.id, user.name, wasteType, date, notes);
+    showNotification('Pickup requested successfully!');
+    
+    // Clear form
+    document.getElementById('wasteType').value = 'Biodegradable';
+    document.getElementById('pickupDate').value = '';
+    document.getElementById('pickupNotes').value = '';
+    
+    loadMyRequests();
+  }
+  
+  function loadMyRequests() {
+    const user = getCurrentUser();
+    const requests = getUserRequests(user.id);
+    const requestsList = document.getElementById('requestsList');
+    
+    if (requests.length === 0) {
+      requestsList.innerHTML = '<p class="no-data">No requests found</p>';
+      return;
+    }
+    
+    requestsList.innerHTML = requests.slice(-5).reverse().map(req => `
+      <div class="request-item">
+        <div class="request-info">
+          <strong>${req.wasteType}</strong><br>
+          <small>${formatDate(req.date)}</small>
+        </div>
+        <span class="status-badge status-${req.status.toLowerCase()}">${req.status}</span>
+      </div>
+    `).join('');
+  }
+  
+  function submitComplaint() {
+    const user = getCurrentUser();
+    const issue = document.getElementById('complaintType').value;
+    const description = document.getElementById('complaintDescription').value;
+    
+    if (!description.trim()) {
+      showNotification('Please describe the issue', 'error');
+      return;
+    }
+    
+    createComplaint(user.id, user.name, issue, description);
+    showNotification('Complaint submitted successfully!');
+    
+    document.getElementById('complaintType').value = 'Missed Pickup';
+    document.getElementById('complaintDescription').value = '';
+    
+    setTimeout(() => showDashboard(), 1500);
+  }
+  
+  function loadSchedule() {
+    const schedules = getAllSchedules();
+    const scheduleList = document.getElementById('scheduleList');
+    
+    if (schedules.length === 0) {
+      scheduleList.innerHTML = '<p class="no-data">No schedules available</p>';
+      return;
+    }
+    
+    scheduleList.innerHTML = schedules.map(schedule => `
+      <div class="schedule-item">
+        <div class="schedule-day">${schedule.day}</div>
+        <div class="schedule-info">
+          <p><strong>Time:</strong> ${schedule.time}</p>
+          <p><strong>Collector:</strong> ${schedule.collectorName}</p>
+          <p><strong>Zone:</strong> ${schedule.zone}</p>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function goRegister() {
+    window.location.href = 'register.html';
+  }
+  
+  function handleLogout() {
+    logout();
+  }
+</script>
+</body>
+</html>

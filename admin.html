@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Smart Waste System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container wide">
+
+  <!-- NAV -->
+  <div class="nav-bar">
+    <h3>⚙️ Admin Panel</h3>
+    <span id="adminName"></span>
+    <button class="nav-logout" onclick="handleLogout()">Logout</button>
+  </div>
+
+  <!-- TABS -->
+  <div class="card" style="padding:14px;">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('overview')">Overview</button>
+      <button class="tab-btn" onclick="switchTab('users')">Users</button>
+      <button class="tab-btn" onclick="switchTab('requests')">Requests</button>
+      <button class="tab-btn" onclick="switchTab('complaints')">Complaints</button>
+      <button class="tab-btn" onclick="switchTab('schedules')">Schedules</button>
+    </div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div id="tab-overview" class="section active">
+    <div class="card">
+      <h3>System Overview</h3>
+      <div class="stats-grid" style="margin-top:16px;">
+        <div class="stat-box">
+          <div class="stat-number" id="stat-requests">0</div>
+          <div class="stat-label">Total Requests</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number" id="stat-complaints">0</div>
+          <div class="stat-label">Complaints</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number" id="stat-collected">0 kg</div>
+          <div class="stat-label">Waste Collected</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number" id="stat-collectors">0</div>
+          <div class="stat-label">Collectors</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h4>Recent Requests</h4>
+      <div id="recent-requests"></div>
+    </div>
+  </div>
+
+  <!-- USERS -->
+  <div id="tab-users" class="section">
+    <div class="card">
+      <h3>Manage Users</h3>
+      <div class="flex-row" style="margin-bottom:12px;">
+        <input type="text" id="userSearch" placeholder="Search by name or email..." style="margin:0;" oninput="renderUsers()">
+        <select id="userRoleFilter" style="margin:0;width:140px;" onchange="renderUsers()">
+          <option value="">All Roles</option>
+          <option value="resident">Resident</option>
+          <option value="collector">Collector</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Zone/Address</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- REQUESTS -->
+  <div id="tab-requests" class="section">
+    <div class="card">
+      <h3>Pickup Requests</h3>
+      <div class="flex-row" style="margin-bottom:12px;">
+        <select id="reqStatusFilter" style="margin:0;" onchange="renderRequests()">
+          <option value="">All Statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Collected">Collected</option>
+          <option value="Missed">Missed</option>
+          <option value="Rescheduled">Rescheduled</option>
+        </select>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th><th>Resident</th><th>Waste Type</th><th>Date</th><th>Status</th><th>Qty (kg)</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="requestsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPLAINTS -->
+  <div id="tab-complaints" class="section">
+    <div class="card">
+      <h3>Complaints</h3>
+      <div style="overflow-x:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID</th><th>Resident</th><th>Issue</th><th>Description</th><th>Status</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="complaintsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCHEDULES -->
+  <div id="tab-schedules" class="section">
+    <div class="card">
+      <h3>Pickup Schedules</h3>
+      <div id="addScheduleForm" style="margin-bottom:16px;padding:14px;background:#f9f9f9;border-radius:8px;">
+        <h4>Add Schedule</h4>
+        <label>Zone</label>
+        <input type="text" id="schZone" placeholder="e.g. Zone C">
+        <label>Collector</label>
+        <select id="schCollector"></select>
+        <label>Day</label>
+        <select id="schDay">
+          <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
+          <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
+        </select>
+        <label>Time</label>
+        <input type="time" id="schTime">
+        <button onclick="addSchedule()">Add Schedule</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="data-table">
+          <thead>
+            <tr><th>Zone</th><th>Collector</th><th>Day</th><th>Time</th><th>Action</th></tr>
+          </thead>
+          <tbody id="schedulesTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="script.js"></script>
+<script>
+  // Auth guard
+  window.onload = function() {
+    const user = requireAuth();
+    if (!user || user.role !== 'admin') {
+      window.location.href = 'login.html';
+      return;
+    }
+    document.getElementById('adminName').textContent = user.name;
+    loadOverview();
+    populateCollectorDropdown();
+  };
+
+  function switchTab(tab) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    event.target.classList.add('active');
+
+    if (tab === 'overview') loadOverview();
+    if (tab === 'users') renderUsers();
+    if (tab === 'requests') renderRequests();
+    if (tab === 'complaints') renderComplaints();
+    if (tab === 'schedules') renderSchedules();
+  }
+
+  // ---- OVERVIEW ----
+  function loadOverview() {
+    const stats = getStats();
+    document.getElementById('stat-requests').textContent = stats.totalRequests;
+    document.getElementById('stat-complaints').textContent = stats.totalComplaints;
+    document.getElementById('stat-collected').textContent = stats.totalCollected + ' kg';
+    document.getElementById('stat-collectors').textContent = stats.totalCollectors;
+
+    const requests = getAllRequests().slice(-5).reverse();
+    const el = document.getElementById('recent-requests');
+    if (!requests.length) { el.innerHTML = '<p class="no-data">No requests yet</p>'; return; }
+    el.innerHTML = requests.map(r => `
+      <div class="request-item">
+        <div class="request-info">
+          <strong>${r.userName}</strong> — ${r.wasteType}<br>
+          <small>${formatDate(r.date)}</small>
+        </div>
+        <span class="status-badge status-${r.status.toLowerCase()}">${r.status}</span>
+      </div>
+    `).join('');
+  }
+
+  // ---- USERS ----
+  function renderUsers() {
+    const search = document.getElementById('userSearch').value.toLowerCase();
+    const roleFilter = document.getElementById('userRoleFilter').value;
+    let users = JSON.parse(localStorage.getItem('sws_users') || '[]');
+
+    if (search) users = users.filter(u => u.name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search));
+    if (roleFilter) users = users.filter(u => u.role === roleFilter);
+
+    const tbody = document.getElementById('usersTableBody');
+    if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" class="no-data">No users found</td></tr>'; return; }
+
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td>${u.name}</td>
+        <td>${u.email}</td>
+        <td>${u.phone || '-'}</td>
+        <td><span class="status-badge" style="background:#e3f2fd;color:#1565c0;">${u.role}</span></td>
+        <td>${u.zone || u.address || '-'}</td>
+        <td>
+          ${u.role !== 'admin' ? `<button class="small red" onclick="deleteUser(${u.id})">Delete</button>` : '<span style="color:#aaa;font-size:12px;">—</span>'}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function deleteUser(id) {
+    if (!confirm('Delete this user?')) return;
+    let users = JSON.parse(localStorage.getItem('sws_users') || '[]');
+    users = users.filter(u => u.id !== id);
+    localStorage.setItem('sws_users', JSON.stringify(users));
+    showNotification('User deleted');
+    renderUsers();
+  }
+
+  // ---- REQUESTS ----
+  function renderRequests() {
+    const statusFilter = document.getElementById('reqStatusFilter').value;
+    let requests = getAllRequests();
+    if (statusFilter) requests = requests.filter(r => r.status === statusFilter);
+    requests = requests.slice().reverse();
+
+    const tbody = document.getElementById('requestsTableBody');
+    if (!requests.length) { tbody.innerHTML = '<tr><td colspan="7" class="no-data">No requests found</td></tr>'; return; }
+
+    tbody.innerHTML = requests.map(r => `
+      <tr>
+        <td>#${r.id}</td>
+        <td>${r.userName}</td>
+        <td>${r.wasteType}</td>
+        <td>${formatDate(r.date)}</td>
+        <td><span class="status-badge status-${r.status.toLowerCase()}">${r.status}</span></td>
+        <td>${r.quantity || 0}</td>
+        <td>
+          <select id="rs-${r.id}" style="margin:0;padding:4px;font-size:12px;width:110px;">
+            <option value="Pending" ${r.status==='Pending'?'selected':''}>Pending</option>
+            <option value="Collected" ${r.status==='Collected'?'selected':''}>Collected</option>
+            <option value="Missed" ${r.status==='Missed'?'selected':''}>Missed</option>
+            <option value="Rescheduled" ${r.status==='Rescheduled'?'selected':''}>Rescheduled</option>
+          </select>
+          <button class="small blue" style="margin-top:4px;" onclick="applyRequestStatus(${r.id}, ${r.userId})">Save</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function applyRequestStatus(reqId, userId) {
+    const newStatus = document.getElementById('rs-' + reqId).value;
+    const oldReq = getAllRequests().find(r => r.id === reqId);
+    updateRequestStatus(reqId, newStatus);
+
+    // Award points when marked Collected (only once)
+    if (newStatus === 'Collected' && oldReq && oldReq.status !== 'Collected') {
+      addPoints(userId, 10);
+      showNotification('Status updated & 10 points awarded!');
+    } else {
+      showNotification('Status updated');
+    }
+    renderRequests();
+    loadOverview();
+  }
+
+  // ---- COMPLAINTS ----
+  function renderComplaints() {
+    const complaints = getAllComplaints().slice().reverse();
+    const tbody = document.getElementById('complaintsTableBody');
+    if (!complaints.length) { tbody.innerHTML = '<tr><td colspan="6" class="no-data">No complaints</td></tr>'; return; }
+
+    tbody.innerHTML = complaints.map(c => `
+      <tr>
+        <td>#${c.id}</td>
+        <td>${c.userName}</td>
+        <td>${c.issue}</td>
+        <td style="max-width:180px;font-size:12px;">${c.description}</td>
+        <td><span class="status-badge status-${c.status.toLowerCase()}">${c.status}</span></td>
+        <td>
+          ${c.status === 'Pending'
+            ? `<button class="small" onclick="resolveComplaint(${c.id})">Resolve</button>`
+            : '<span style="color:#aaa;font-size:12px;">Done</span>'}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function resolveComplaint(id) {
+    updateComplaintStatus(id, 'Resolved');
+    showNotification('Complaint resolved');
+    renderComplaints();
+  }
+
+  // ---- SCHEDULES ----
+  function populateCollectorDropdown() {
+    const users = JSON.parse(localStorage.getItem('sws_users') || '[]');
+    const collectors = users.filter(u => u.role === 'collector');
+    const sel = document.getElementById('schCollector');
+    sel.innerHTML = collectors.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  }
+
+  function renderSchedules() {
+    const schedules = getAllSchedules();
+    const tbody = document.getElementById('schedulesTableBody');
+    if (!schedules.length) { tbody.innerHTML = '<tr><td colspan="5" class="no-data">No schedules</td></tr>'; return; }
+
+    tbody.innerHTML = schedules.map(s => `
+      <tr>
+        <td>${s.zone}</td>
+        <td>${s.collectorName}</td>
+        <td>${s.day}</td>
+        <td>${s.time}</td>
+        <td><button class="small red" onclick="deleteSchedule(${s.id})">Delete</button></td>
+      </tr>
+    `).join('');
+  }
+
+  function addSchedule() {
+    const zone = document.getElementById('schZone').value.trim();
+    const collectorId = parseInt(document.getElementById('schCollector').value);
+    const day = document.getElementById('schDay').value;
+    const time = document.getElementById('schTime').value;
+
+    if (!zone || !time) { showNotification('Fill in zone and time', 'error'); return; }
+
+    const users = JSON.parse(localStorage.getItem('sws_users') || '[]');
+    const collector = users.find(u => u.id === collectorId);
+    const schedules = getAllSchedules();
+
+    const newSchedule = {
+      id: schedules.length > 0 ? Math.max(...schedules.map(s => s.id)) + 1 : 1,
+      zone,
+      collectorId,
+      collectorName: collector ? collector.name : 'Unknown',
+      day,
+      time
+    };
+
+    schedules.push(newSchedule);
+    localStorage.setItem('sws_schedules', JSON.stringify(schedules));
+    showNotification('Schedule added');
+    document.getElementById('schZone').value = '';
+    document.getElementById('schTime').value = '';
+    renderSchedules();
+  }
+
+  function deleteSchedule(id) {
+    if (!confirm('Delete this schedule?')) return;
+    let schedules = getAllSchedules().filter(s => s.id !== id);
+    localStorage.setItem('sws_schedules', JSON.stringify(schedules));
+    showNotification('Schedule deleted');
+    renderSchedules();
+  }
+
+  function handleLogout() { logout(); }
+</script>
+</body>
+</html>

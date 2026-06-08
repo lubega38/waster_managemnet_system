@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Collector - Smart Waste System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+
+  <!-- NAV -->
+  <div class="nav-bar">
+    <h3>🚛 Collector</h3>
+    <span id="collectorName"></span>
+    <button class="nav-logout" onclick="handleLogout()">Logout</button>
+  </div>
+
+  <!-- TABS -->
+  <div class="card" style="padding:14px;">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('requests', event)">Requests</button>
+      <button class="tab-btn" onclick="switchTab('schedule', event)">My Schedule</button>
+      <button class="tab-btn" onclick="switchTab('summary', event)">Summary</button>
+    </div>
+  </div>
+
+  <!-- REQUESTS TAB -->
+  <div id="tab-requests" class="section active">
+    <div class="card">
+      <h3>Pickup Requests</h3>
+      <div class="flex-row" style="margin-bottom:12px;">
+        <select id="statusFilter" style="margin:0;" onchange="renderRequests()">
+          <option value="">All Statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Collected">Collected</option>
+          <option value="Missed">Missed</option>
+          <option value="Rescheduled">Rescheduled</option>
+        </select>
+      </div>
+      <div id="requestsList"></div>
+    </div>
+  </div>
+
+  <!-- SCHEDULE TAB -->
+  <div id="tab-schedule" class="section">
+    <div class="card">
+      <h3>My Schedule</h3>
+      <div id="mySchedule"></div>
+    </div>
+  </div>
+
+  <!-- SUMMARY TAB -->
+  <div id="tab-summary" class="section">
+    <div class="card">
+      <h3>My Summary</h3>
+      <div class="stats-grid" style="margin-top:16px;">
+        <div class="stat-box">
+          <div class="stat-number" id="sum-total">0</div>
+          <div class="stat-label">Total Assigned</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number" id="sum-collected">0</div>
+          <div class="stat-label">Collected</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number" id="sum-pending">0</div>
+          <div class="stat-label">Pending</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number" id="sum-kg">0 kg</div>
+          <div class="stat-label">Total Weight</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- UPDATE STATUS MODAL -->
+<div id="updateModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:999;display:none;align-items:center;justify-content:center;">
+  <div class="card" style="width:300px;margin:0;">
+    <h4>Update Request #<span id="modalReqId"></span></h4>
+    <label>New Status</label>
+    <select id="modalStatus">
+      <option value="Pending">Pending</option>
+      <option value="Collected">Collected</option>
+      <option value="Missed">Missed</option>
+      <option value="Rescheduled">Rescheduled</option>
+    </select>
+    <label>Quantity Collected (kg)</label>
+    <input type="number" id="modalQty" placeholder="0" min="0">
+    <button onclick="saveStatus()">Save</button>
+    <button class="grey" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
+<script src="script.js"></script>
+<script>
+  let currentCollector = null;
+  let editingRequestId = null;
+
+  window.onload = function() {
+    currentCollector = requireAuth();
+    if (!currentCollector || currentCollector.role !== 'collector') {
+      window.location.href = 'login.html';
+      return;
+    }
+    document.getElementById('collectorName').textContent = currentCollector.name;
+    renderRequests();
+  };
+
+  function switchTab(tab, e) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    if (e && e.target) e.target.classList.add('active');
+
+    if (tab === 'requests') renderRequests();
+    if (tab === 'schedule') renderSchedule();
+    if (tab === 'summary') renderSummary();
+  }
+
+  function renderRequests() {
+    const statusFilter = document.getElementById('statusFilter').value;
+    let requests = getAllRequests();
+    if (statusFilter) requests = requests.filter(r => r.status === statusFilter);
+    requests = requests.slice().reverse();
+
+    const el = document.getElementById('requestsList');
+    if (!requests.length) { el.innerHTML = '<p class="no-data">No requests found</p>'; return; }
+
+    el.innerHTML = requests.map(r => `
+      <div class="request-item">
+        <div class="request-info">
+          <strong>${r.userName}</strong> — ${r.wasteType}<br>
+          <small>${formatDate(r.date)}${r.notes ? ' · ' + r.notes : ''}</small><br>
+          <small>Qty: ${r.quantity || 0} kg</small>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+          <span class="status-badge status-${r.status.toLowerCase()}">${r.status}</span>
+          <button class="small blue" onclick="openModal(${r.id}, '${r.status}', ${r.quantity || 0})">Update</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderSchedule() {
+    const schedules = getAllSchedules();
+    const el = document.getElementById('mySchedule');
+    if (!schedules.length) { el.innerHTML = '<p class="no-data">No schedules assigned</p>'; return; }
+
+    el.innerHTML = schedules.map(s => `
+      <div class="schedule-item">
+        <div class="schedule-day">${s.day}</div>
+        <div class="schedule-info">
+          <strong>${s.zone}</strong><br>
+          Time: ${s.time}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderSummary() {
+    const requests = getAllRequests();
+    const total = requests.length;
+    const collected = requests.filter(r => r.status === 'Collected').length;
+    const pending = requests.filter(r => r.status === 'Pending').length;
+    const kg = requests.reduce((sum, r) => sum + (r.quantity || 0), 0);
+
+    document.getElementById('sum-total').textContent = total;
+    document.getElementById('sum-collected').textContent = collected;
+    document.getElementById('sum-pending').textContent = pending;
+    document.getElementById('sum-kg').textContent = kg + ' kg';
+  }
+
+  function openModal(reqId, currentStatus, currentQty) {
+    editingRequestId = reqId;
+    document.getElementById('modalReqId').textContent = reqId;
+    document.getElementById('modalStatus').value = currentStatus;
+    document.getElementById('modalQty').value = currentQty || '';
+    document.getElementById('updateModal').style.display = 'flex';
+  }
+
+  function closeModal() {
+    document.getElementById('updateModal').style.display = 'none';
+    editingRequestId = null;
+  }
+
+  function saveStatus() {
+    const newStatus = document.getElementById('modalStatus').value;
+    const qty = parseInt(document.getElementById('modalQty').value) || 0;
+
+    const oldReq = getAllRequests().find(r => r.id === editingRequestId);
+    updateRequestStatus(editingRequestId, newStatus, qty);
+
+    // Award points to resident when collected (only once)
+    if (newStatus === 'Collected' && oldReq && oldReq.status !== 'Collected') {
+      addPoints(oldReq.userId, 10);
+      showNotification('Marked collected — 10 pts awarded to resident!');
+    } else {
+      showNotification('Status updated');
+    }
+
+    closeModal();
+    renderRequests();
+  }
+
+  function handleLogout() { logout(); }
+</script>
+</body>
+</html>
